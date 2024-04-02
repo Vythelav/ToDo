@@ -22,27 +22,32 @@ namespace WpfApp4
     /// </summary>
     public partial class MainWindow : Window
     {
-        SqlConnection conn = new SqlConnection(@"Data Source=3205EC06; Initial Catalog=Task; Integrated Security=True");
-
+        
+        private SqlConnection conn;
+        private List<string> taskList;
+        private List<string> newTask;
         public MainWindow()
         {
             InitializeComponent();
+            conn = new SqlConnection(@"Data Source=3218EC08; Initial Catalog=ToDo; Integrated Security=True");
+            taskList = new List<string>();
+            newTask = new List<string>();
+            GetTasksFromDatabase();
+            GetCompletedTasksFromDatabase();
 
         }
-        List<string> taskList = new List<string>();
-        List<string> newTask = new List<string>();
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
+        //private void Button_Click(object sender, RoutedEventArgs e)
+        //{
 
-            string text = task.Text;
+        //    string text = task.Text;
 
-            taskList.Add(text);
-            listBox.Items.Add(text);
+        //    taskList.Add(text);
+        //    listBox.Items.Add(text);
 
-            UpdateList();
-            task.Text = "";
-        }
+        //    UpdateList();
+        //    task.Text = "";
+        //}
         private void UpdateList()
         {
             listBox.Items.Clear();
@@ -73,26 +78,8 @@ namespace WpfApp4
                
             }
         }
-        private void Delete_Task(object sender, RoutedEventArgs e)
-        {
-
-            Button button = (Button)sender;
-            string task = button.Tag.ToString();
-            taskList.Remove(task);
-            UpdateList();
-
-        }
-        private void MoveToNewList(object sender, RoutedEventArgs e)
-        {
-
-            Button button = (Button)sender;
-            string task = button.Tag.ToString();
-            newTask.Add(task);
-            UpdateList();
-            UpdateMoveToNewList();
-            taskList.Remove(task);
-            UpdateList();
-        }
+    
+       
 
         private void UpdateMoveToNewList()
         {
@@ -110,15 +97,157 @@ namespace WpfApp4
                 newlistBox.Items.Add(stackPanel);
             }
         }
-        private void СreateList()
+        private void GetTasksFromDatabase()
         {
-            conn.Open();
-            SqlCommand cmd = new SqlCommand("select Name,id from Task", conn);
-            SqlDataReader reader = cmd.ExecuteReader();
-            reader.Read();
-            string line = (string)reader[0];
-            reader.Close();
+            try
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("SELECT Name FROM Task", conn);
+                SqlDataReader reader = cmd.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    string taskName = (string)reader["Name"];
+                    taskList.Add(taskName);
+                    UpdateList();
+                }
+
+                reader.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while retrieving tasks from the database: " + ex.Message);
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+        private void AddTaskToDatabase(string taskName)
+        {
+            try
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("INSERT INTO Task (Name) VALUES (@TaskName)", conn);
+                cmd.Parameters.AddWithValue("@TaskName", taskName);
+                cmd.ExecuteNonQuery();
+                taskList.Add(taskName);
+                UpdateList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while adding task to the database: " + ex.Message);
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
 
+        private void GetCompletedTasksFromDatabase()
+        {
+            try
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("SELECT Name FROM NewTask", conn);
+                SqlDataReader reader = cmd.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    string completedTaskName = (string)reader["Name"];
+                    newTask.Add(completedTaskName);
+                    UpdateMoveToNewList();
+                }
+
+                reader.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while retrieving completed tasks from the database: " + ex.Message);
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+        private void AddCompletedTaskToDatabase(string taskName)
+        {
+            try
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("INSERT INTO NewTask (Name) VALUES (@TaskName)", conn);
+                cmd.Parameters.AddWithValue("@TaskName", taskName);
+                cmd.ExecuteNonQuery();
+                newTask.Add(taskName);
+                UpdateMoveToNewList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while adding completed task to the database: " + ex.Message);
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+        private void DeleteTaskFromDatabase(string taskName)
+        {
+            try
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("DELETE FROM Task WHERE Name = @TaskName", conn);
+                cmd.Parameters.AddWithValue("@TaskName", taskName);
+                int rowsAffected = cmd.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                {
+                    taskList.Remove(taskName);
+                    UpdateList();
+                }
+                else
+                {
+                    MessageBox.Show("Задача с указанным именем не найдена.");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while deleting task from the database: " + ex.Message);
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            string text = task.Text;
+            AddTaskToDatabase(text);
+            task.Text = "";
+        }
+        private void Delete_Task(object sender, RoutedEventArgs e)
+        {
+            Button button = (Button)sender;
+            string task = button.Tag.ToString();
+            DeleteTaskFromDatabase(task);
+        }
+
+        private void MoveToNewList(object sender, RoutedEventArgs e)
+        {
+            Button button = (Button)sender;
+            string task = button.Tag.ToString();
+            DeleteTaskFromDatabase(task);
+            AddCompletedTaskToDatabase(task);
+            UpdateMoveToNewList();
+        }
+        
     }
 }
+
+       
+    
+
+    
+
+
+ 
